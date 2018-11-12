@@ -2,5 +2,5 @@
 /data
 /data2
 /MessageService/node_modules
-/ClientService/node_modules
-/CreditService/node_modules
+/message/node_modules
+/credit/node_modules

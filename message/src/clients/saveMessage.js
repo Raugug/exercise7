@@ -7,6 +7,7 @@ module.exports = function(messageParams, cb, messageUuid) {
   let message = new MessageModel(messageParams);
 
   if (message.status == "OK") {
+    //METER MENSAJE OK EN COLA PARA COBRAR
     updateCreditTransaction(
       {
         amount: { $gte: 1 },

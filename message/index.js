@@ -1,6 +1,7 @@
 const http = require("http");
 const express = require("express");
 const handleRequest = require("./src/queue/queue")
+const handleGetCredit = require("./src/creditQueue/creditQueue")
 const worker = require("./src/queue/worker")
 const bodyParser = require("body-parser");
 const {
@@ -8,8 +9,11 @@ const {
   ValidationError
 } = require("express-json-validator-middleware");
 const getMessages = require("./src/controllers/getMessages");
-const updateCredit = require("./src/controllers/updateCredit");
+//const updateCredit = require("./src/controllers/updateCredit");
 const getMessageStatus = require("./src/controllers/getMessageStatus");
+const { checkCredit } = require("./queue");
+
+const payedReqWorker = require("./src/controllers/payedReqWorker");
 
 const app = express();
 
@@ -38,24 +42,14 @@ const messageSchema = {
   }
 };
 
-const creditSchema = {
-  type: "object",
-  required: ["amount"],
-  properties: {
-    location: {
-      type: "string"
-    },
-    amount: {
-      type: "number"
-    }
-  }
-};
-
 app.post(
   "/messages",
   bodyParser.json(),
   validate({ body: messageSchema }),
-  handleRequest
+  handleGetCredit,
+  checkCredit
+  //requestQueue
+  //handleRequest
   //sendMessage
 );
 

@@ -10,8 +10,9 @@ module.exports = (req, res) => {
 
   Promise.resolve(createMessage(message)).then(() => {
     queue.add(message).then(job => {
-      res.end(`{"message status": http://localhost:9017/message/${message.uuid}/status`);
+      res.end(`{"message status": http://localhost:9007/message/${message.uuid}/status`);
       //sendMessage(body)
     });
+    
   });
 };

@@ -1,95 +1,99 @@
 const http = require("http");
 const saveMessage = require("../clients/saveMessage");
-const getCredit = require("../clients/getCredit");
 
 const random = n => Math.floor(Math.random() * Math.floor(n));
 
-module.exports = function(req, res) {
-  const body = JSON.stringify(req);
-  var query = getCredit();
-  let messageUuid = req.uuid;
 
-  query.exec(function(err, credit) {
-    if (err) return console.log(err);
+module.exports = function (messgBody) {
 
-    current_credit = credit[0].amount;
+	const newPromise = Promise.resolve(function () {
+		const message = messgBody.message;
+		delete message['status'];
+		const body = JSON.stringify(message);
 
-    if (current_credit > 0) {
-      const postOptions = {
-        //host: "messageapp",
-        host: "localhost",
-        port: 3000,
-        path: "/message",
-        method: "post",
-        json: true,
-        headers: {
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(body)
-        }
-      };
+		const postOptions = {
+      //host: "messageapp",
+			host: "localhost",
+			port: 3000,
+			path: "/message",
+			method: "post",
+			json: true,
+			headers: {
+				"Content-Type": "application/json",
+				"Content-Length": Buffer.byteLength(body)
+			}
+		}
 
-      let postReq = http.request(postOptions);
+		let postReq = http.request(postOptions);
+		return { postReq, message, body };
+	}());
 
-      postReq.on("response", postRes => {
-        if (postRes.statusCode === 200) {
-          saveMessage(
-            {
-              ...req,
-              status: "OK"
-            },
-            function(_result, error) {
-              if (error) {
-                res.statusCode = 500;
-                res.end(error);
-              } else {
-                res.end(postRes.body);
-              }
-            },
-            messageUuid
-          );
-        } else {
-          console.error("Error while sending message");
+	newPromise.then(data => {
+		const { postReq, message, body } = data
+		postReq.on("response", postRes => {
+			if (postRes.statusCode === 200) {
+				console.log({ ...message })
+				saveMessage(
+					{
+						...message,
+						status: "OK"
+					},
+					function (_result, error) {
+						if (error) {
+							console.log('Error 500.', error);
+						} else {
+							console.log('Successfully saved with status OK');
+						}
+					}
+				);
+			} else {
+				console.error("Error while sending message");
 
-          saveMessage(
-            {
-              ...req,
-              status: "ERROR"
-            },
-            () => {
-              res.statusCode = 500;
-              res.end("Internal server error: SERVICE ERROR");
-            },
-            messageUuid
-          );
-        }
-      });
+				saveMessage(
+					{
+						...message,
+						status: "ERROR"
+					},
+					() => {
+						console.log('Error 500: Internal server error: SERVICE ERROR');
+					}
+				);
+			}
+		});
 
-      postReq.setTimeout(random(6000));
+		postReq.setTimeout(random(6000));
 
-      postReq.on("timeout", () => {
-        console.error("Timeout Exceeded!");
-        postReq.abort();
+		postReq.on("timeout", () => {
+			console.error("Timeout Exceeded!");
+			postReq.abort();
 
-        saveMessage(
-          {
-            ...req,
-            status: "TIMEOUT"
-          },
-          () => {
-            res.statusCode = 500;
-            res.end("Internal server error: TIMEOUT");
-          },
-          messageUuid
-        );
-      });
+			saveMessage(
+				{
+					...message,
+					status: "TIMEOUT"
+				},
+				() => {
+					console.log('Error 500: Internal server error: TIMEOUT');
+				}
+			);
+		});
 
-      postReq.on("error", () => {});
+		postReq.on("error", () => {
+			console.error("Error while sending message");
 
-      postReq.write(body);
-      postReq.end();
-    } else {
-      res.statusCode = 500;
-      res.end("No credit error");
-    }
-  });
+			saveMessage(
+				{
+					...message,
+					status: "ERROR"
+				},
+				() => {
+					console.log('Error 500: Internal server error: SERVICE ERROR');
+				}
+			);
+		});
+
+		postReq.write(body);
+		postReq.end();
+	})
+		.catch(error => console.log('Error', error))
 };

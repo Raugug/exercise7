@@ -2,6 +2,8 @@ const database = require("../database");
 const Message = require("../models/message");
 const { cleanClone } = require("../utils");
 
+const _ = require("lodash");
+
 function saveMessageReplica(replica, retries) {
   if (retries > 0) {
     replica.markModified("body");
@@ -19,37 +21,40 @@ function saveMessageReplica(replica, retries) {
   }
 }
 
-function saveMessageTransaction(newValue, messageUuid) {
+function saveMessageTransaction(newValue) {
   const MessagePrimary = Message();
   const MessageReplica = Message("replica");
 
   let message = new MessagePrimary(newValue);
+  const { messageId, status } = newValue;
 
-  return MessagePrimary.findOneAndUpdate({"uuid": messageUuid}, newValue, {new:true})
+  return MessagePrimary.findOneAndUpdate({"messageId": messageId}, {status}, {new:true})
     .then(doc => {
-      if (doc == null) {
-        return message.save().then(doc => {
-            console.log("Message saved successfully:", doc);
+      if (doc != null) {
+        MessageReplica.findOneAndUpdate({messageId}, {status}, {new:true})
+        .then(doc => console.log("Message updated successfully:", doc))
+        } else {
+          message.save()
+          .then(doc => {
+            console.log("Message saved successfully", doc);
             return cleanClone(doc);
           })
-        } else {
-          console.log("Message updated successfully:", newValue);
-          return cleanClone(doc);
+          .then(clone => {
+            let replica = new MessageReplica(newValue);
+            saveMessageReplica(replica, 3);
+            return clone;
+          })
+          .catch(err => {
+            console.log("Error while saving message", err);
+            throw err;
+          });
         }
     })
-    .then(clone => {
-      let replica = new MessageReplica(newValue);
-      saveMessageReplica(replica, 3);
-      return clone;
-    })
-    .catch(err => {
-      console.log("Error while saving message", err);
-      throw err;
-    });
+    
 }
 
-module.exports = function(messageParams, cb, messageUuid) {
-  saveMessageTransaction(messageParams, messageUuid)
+module.exports = function(messageParams, cb) {
+  saveMessageTransaction(messageParams)
     .then(() => cb())
     .catch(err => {
       cb(undefined, err);

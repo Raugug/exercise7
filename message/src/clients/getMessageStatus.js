@@ -1,5 +1,5 @@
 const Message = require("../models/message");
 
-module.exports = function(conditions = {}) {
-  return Message().find(conditions);
+module.exports = function(messageId) {
+  return Message().find({messageId}, {_id:0, status: 1});
 };

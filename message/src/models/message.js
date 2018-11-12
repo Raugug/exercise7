@@ -4,7 +4,7 @@ const database = require("../database");
 let messageSchema = new mongoose.Schema({
   destination: String,
   body: String,
-  uuid: String,
+  messageId: String,
   location: {
   	name: {
       type: String,

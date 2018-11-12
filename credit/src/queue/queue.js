@@ -1,17 +1,52 @@
-const Queue = require("bull");
-const queue = new Queue("message", "redis://127.0.0.1:6379");
-const uuidv1 = require("uuid/v1");
-const sendMessage = require("../controllers/sendMessage");
-const createMessage = require("../controllers/createMessage");
+const Bull = require('bull');
+const creditQueue = new Bull('credit-queue');
+const messageQueue = new Bull('message-queue');
+const rollbackQueue = new Bull('rollback-queue');
+const updateCredit = require('../clients/updateCredit');
 
-module.exports = (req, res) => {
-  let message = req.body;
-  message.uuid = uuidv1();
+const getCredit = require('../clients/getCredit');
 
-  Promise.resolve(createMessage(message)).then(() => {
-    queue.add(message).then(job => {
-      res.end(`{"message status": http://localhost:9017/message/${message.uuid}/status`);
-      //sendMessage(body)
-    });
-  });
-};
+creditQueue.process((job, done) => {
+    const { cost } = job.data.location;
+    getCredit()
+        .then(credit => {
+            let { amount } = credit[0];
+            if (amount > 0) {
+                amount -= cost;
+                updateCredit({
+                    amount,
+                    status: "ok"
+                }, function (_result, error) {
+                    if (error) {
+                        console.log('Error 500 Updating credit:', error);
+                    }
+                    console.log(`Message charged. Credit: ${amount}`);
+                });
+                return amount;
+            } else {
+                return 'No credit';
+            };
+        })
+        .then(credit => messageQueue.add({ message: job.data, credit }))
+        .then(() => done())
+        .catch(error => console.log('Queue Error: ', error))
+});
+
+rollbackQueue.process((job, done) => {
+    const { cost } = job.data.message.location;
+    getCredit()
+        .then(function(credit) {
+            let { amount } = credit[0];
+            amount += cost;
+            return updateCredit({
+                amount,
+                status: "ok"
+            }, function (_result, error) {
+                if (error) {
+                    console.log('Error 500 in rollback', error);
+                }
+                console.log(`Charge back. Credit: ${amount}`);
+            })
+        })
+        .then(() => done()); 
+});

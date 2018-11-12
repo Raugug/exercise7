@@ -12,7 +12,7 @@ const app = express();
 
 const validator = new Validator({ allErrors: true });
 const { validate } = validator;
-require ('./src/queue/queue')
+require ('./src/queue/queue');
 
 const creditSchema = {
   type: "object",

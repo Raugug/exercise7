@@ -9,6 +9,6 @@ module.exports = function(messageParams, cb) {
     saveMessageTransaction(messageParams, cb);
   } else {
       //rollback
-      Promise.resolve(saveMessageTransaction(messageParams, cb)).then(() => rollbackCharge(messageParams))
+      Promise.resolve(saveMessageTransaction(messageParams, cb)).then((message) => rollbackCharge(messageParams))
   }
 };

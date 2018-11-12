@@ -10,6 +10,7 @@ creditQueue.process((job, done) => {
     const { cost } = job.data.location;
     getCredit()
         .then(credit => {
+            console.log("CREDIT", credit)
             let { amount } = credit[0];
             if (amount > 0) {
                 amount -= cost;
